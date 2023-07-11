@@ -36,7 +36,9 @@ class MakePostApiCallTask extends AsyncTask<String, Void, String> {
         } catch (Exception e) {
             this.exception = e;
 
-            return null;
+            e.printStackTrace();
+
+            return "[]";
         }
     }
 
