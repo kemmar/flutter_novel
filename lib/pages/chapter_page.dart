@@ -11,10 +11,14 @@ enum TtsState { playing, stopped, paused, continued }
 
 class ChapterPage extends StatefulWidget {
   const ChapterPage(
-      {Key? key, required this.chapterIndex, required this.chapterInfoList})
+      {Key? key,
+      required this.chapterIndex,
+      required this.chapterInfoList,
+      this.keepPlaying = false})
       : super(key: key);
 
   final int chapterIndex;
+  final bool keepPlaying;
   final List<ChapterInfo> chapterInfoList;
 
   @override
@@ -27,6 +31,7 @@ class _ChapterPageState extends State<ChapterPage> {
   ChapterPageInfo chapterPageInfo = ChapterPageInfo();
 
   int paraIndex = 0;
+  late bool keepPlaying;
   List<String> content = List.empty();
 
   late FlutterTts tts;
@@ -75,13 +80,17 @@ class _ChapterPageState extends State<ChapterPage> {
     }
 
     tts.setCompletionHandler(() {
+      print("Complete");
       setState(() {
-        print("Complete");
-        if(paraIndex < content.length) {
+        if ((paraIndex + 1) < content.length) {
           paraIndex++;
           _speak();
         } else {
-        ttsState = TtsState.stopped;
+          _stop();
+          paraIndex = 0;
+          if (keepPlaying) {
+            _next();
+          }
         }
       });
     });
@@ -144,18 +153,24 @@ class _ChapterPageState extends State<ChapterPage> {
     await tts.stop();
   }
 
+  void _pause() async {
+    await tts.pause();
+  }
+
   Future _setAwaitOptions() async {
     await tts.awaitSpeakCompletion(true);
   }
 
-  void _transition(int index) async {
+  void _transition(int index, bool playOnLoad) async {
     _stop();
 
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
           builder: (context) => ChapterPage(
-              chapterIndex: index, chapterInfoList: widget.chapterInfoList)),
+              chapterIndex: index,
+              chapterInfoList: widget.chapterInfoList,
+              keepPlaying: playOnLoad)),
     );
   }
 
@@ -169,17 +184,34 @@ class _ChapterPageState extends State<ChapterPage> {
   }
 
   void _previous() async {
-    _transition(widget.chapterIndex - 1);
+    _transition(widget.chapterIndex - 1, false);
   }
 
   void _next() async {
-    _transition(widget.chapterIndex + 1);
+    _transition(widget.chapterIndex + 1, keepPlaying);
+  }
+
+  void initPlayer() {
+    setState(() {
+      keepPlaying =
+          (widget.chapterIndex != (widget.chapterInfoList.length - 1)) &
+              widget.keepPlaying;
+    });
+
+    if (keepPlaying) {
+      _speak();
+    }
   }
 
   @override
   void initState() {
-    initTts();
     super.initState();
+    initTts();
+    initContent();
+    initPlayer();
+  }
+
+  void initContent() {
     if (widget.chapterIndex >= 0 &&
         widget.chapterIndex < widget.chapterInfoList.length) {
       chapterInfo = widget.chapterInfoList.elementAt(widget.chapterIndex);
@@ -199,24 +231,38 @@ class _ChapterPageState extends State<ChapterPage> {
     }
   }
 
+  void _toggleKeepPlaying() {
+    setState(() {
+      keepPlaying = !keepPlaying;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(chapterInfo.chapterTitle!),
+        actions: <Widget>[
+          IconButton(
+            icon: Icon(Icons.receipt_long,
+                color: keepPlaying ? Colors.green : Colors.red),
+            onPressed: _toggleKeepPlaying,
+          )
+        ],
       ),
       body: SingleChildScrollView(
           scrollDirection: Axis.vertical,
           child: Column(
-            children: content.map((e) =>
-            ListTile(
-              title: Text(e),
-              onTap: () { readSelected(content.indexOf(e)); },
-              dense: false,
-            )
-            ).toList(),
-          )
-          ),
+            children: content
+                .map((e) => ListTile(
+                      title: Text(e),
+                      onTap: () {
+                        readSelected(content.indexOf(e));
+                      },
+                      dense: false,
+                    ))
+                .toList(),
+          )),
       persistentFooterButtons: navigationButtons(),
     );
   }
@@ -230,9 +276,15 @@ class _ChapterPageState extends State<ChapterPage> {
           icon: const Icon(Icons.navigate_before_outlined)),
       IconButton(
         onPressed: () {
-          _speak();
+          if (ttsState == TtsState.playing) {
+            _pause();
+          } else {
+            _speak();
+          }
         },
-        icon: const Icon(Icons.audiotrack),
+        icon: (ttsState == TtsState.playing)
+            ? Icon(Icons.pause)
+            : Icon(Icons.audiotrack),
       ),
       IconButton(
         onPressed: () {

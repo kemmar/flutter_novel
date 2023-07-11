@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:novel_killer/model/chapter.dart';
 import 'package:novel_killer/model/chapter_info.dart';
 
+import '../model/novel_info.dart';
+
 class NovelService {
   static const platform = MethodChannel('com.fiirb.dev/novels');
 
@@ -19,10 +21,28 @@ class NovelService {
     return novelList;
   }
 
-  Future<List<ChapterInfo>> listNovelChapters() async {
+  Future<List<NovelInfo>> searchForNovels(String searchTerm) async {
+    List<NovelInfo> novelList;
+    try {
+      final String? result = await platform.invokeMethod(
+          'searchForNovels', <String, dynamic?>{'searchTerm': searchTerm});
+
+      novelList = (json.decode(result!) as List)
+          .map((e) => NovelInfo.fromJson(e))
+          .toList();
+    } on PlatformException catch (e) {
+      novelList = [];
+    }
+
+    return novelList;
+  }
+
+  Future<List<ChapterInfo>> listNovelChapters(String novelUrl) async {
     List<ChapterInfo> novelList;
     try {
-      final String? result = await platform.invokeMethod('getNovelChapterList');
+      final String? result =
+          await platform.invokeMethod('getNovelChapterList',  <String, dynamic?>{'novelUrl': novelUrl});
+
       novelList = (json.decode(result!) as List)
           .map((e) => ChapterInfo.fromJson(e))
           .toList();
@@ -37,9 +57,10 @@ class NovelService {
   Future<Chapter> readChapter(String chapterLink) async {
     Chapter chapter = Chapter(content: ["Failed to retrieve content"]);
     try {
-      var chapterContent = await platform
-          .invokeMethod('getNovelChapter', <String, dynamic?>{'url': chapterLink}) as List;
-      chapter = Chapter(content: chapterContent.map((e) => e as String).toList());
+      var chapterContent = await platform.invokeMethod(
+          'getNovelChapter', <String, dynamic?>{'url': chapterLink}) as List;
+      chapter =
+          Chapter(content: chapterContent.map((e) => e as String).toList());
     } on Exception catch (e) {
       print('Error: $e');
     }

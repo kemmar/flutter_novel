@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:novel_killer/model/chapter_info.dart';
 import 'package:novel_killer/model/chapter_page.dart';
 import 'package:novel_killer/pages/chapter_page.dart';
+import 'package:novel_killer/pages/novel_page.dart';
 import 'package:novel_killer/services/novel_service.dart';
 
 import '../main.dart';
+import '../model/novel_info.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({Key? key, required this.title}) : super(key: key);
@@ -19,23 +21,17 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   NovelService novelService = NovelService();
 
-  List<ChapterInfo> _novelList = List.empty();
+  List<NovelInfo> _novelList = List.empty();
 
-  void _action() {
-    novelService.listNovelChapters().then((_novelListF) {
-      setState(() {
-        _novelList = _novelListF.toList();
-      });
-    });
-  }
+  String searchParam = "";
 
-  void _goToChapterPage(int index, List<ChapterInfo> chapterList) {
+  void _transition(String title, String url) {
     Navigator.push(
       context,
       MaterialPageRoute(
-          builder: (context) => ChapterPage(
-              chapterIndex: index,
-              chapterInfoList: chapterList)),
+          builder: (context) => NovelPage(
+              title: title,
+              url: url)),
     );
   }
 
@@ -44,32 +40,45 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
+        actions: searchBar(),
       ),
-      body: Center(
-        child: ListView(
-            padding: EdgeInsets.zero,
-            scrollDirection: Axis.vertical,
+      body: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        child: Column(
             children: _novelList
                 .map((e) => Card(
                         child: ListTile(
-                      leading: const Icon(
-                        Icons.menu_book_sharp,
-                      ),
-                      title: Text(e.chapterTitle!),
+                      leading: Image.network(e.cover!),
+                      title: Text(e.name!),
                       trailing: const Icon(Icons.more_vert),
-                      onTap: () {
-                        _goToChapterPage(_novelList.indexOf(e), _novelList);
-                      },
                       dense: false,
+                          onLongPress: () => _transition(e.name!, e.url!),
                     )))
                 .toList()),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _action,
-        tooltip: 'Action',
-        child:
-            _novelList.isEmpty ? Icon(Icons.add) : Icon(Icons.download_rounded),
       ), // This trailing comma makes auto-formatting nicer for build methods.
     );
+  }
+
+   void _search(String searchTerm)  {
+    novelService.searchForNovels(searchTerm).then((value) =>
+        setState(() {
+          _novelList = value;
+        })
+    );
+  }
+
+  List<Widget> searchBar() {
+    return [
+    SizedBox(
+      width: 250,
+      child: TextField(
+        decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          labelText: 'Search',
+        ),
+        onSubmitted: (String str) => _search(str),
+      ),
+      ),
+    ];
   }
 }
