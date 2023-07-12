@@ -260,6 +260,9 @@ class _ChapterPageState extends State<ChapterPage> {
                         readSelected(content.indexOf(e));
                       },
                       dense: false,
+                      tileColor: (content.indexOf(e) == paraIndex)
+                          ? Colors.amberAccent
+                          : Colors.white,
                     ))
                 .toList(),
           )),
